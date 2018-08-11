@@ -9,3 +9,7 @@ unix:!macx {
 win32: {
     LIBS += -larchive_static -lz
 }
+macx: {
+    INCLUDEPATH += /usr/local/Cellar/libarchive/3.3.2/include
+    LIBS += -L/usr/local/Cellar/libarchive/3.3.2/lib -larchive
+}
