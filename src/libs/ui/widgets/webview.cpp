@@ -72,7 +72,7 @@ const QVector<int> &WebView::availableZoomLevels()
     return zoomLevels;
 }
 
-const int WebView::defaultZoomLevel()
+const int &WebView::defaultZoomLevel()
 {
     static const int level = availableZoomLevels().indexOf(100);
     return level;
@@ -122,14 +122,20 @@ void WebView::contextMenuEvent(QContextMenuEvent *event)
     const QString linkText = hitTestResult.linkText();
 
     if (linkUrl.isValid()) {
-        m_contextMenu->addAction(tr("Open Link in New Tab"), this, [this]() {
-            triggerPageAction(QWebPage::WebAction::OpenLinkInNewWindow);
-        });
+        const QString scheme = linkUrl.scheme();
 
-        if (linkUrl.scheme() != QLatin1String("qrc")) {
-            m_contextMenu->addAction(tr("Open Link in Desktop Browser"), this, [linkUrl]() {
-                QDesktopServices::openUrl(linkUrl);
+        if (scheme != QLatin1String("javascript")) {
+            m_contextMenu->addAction(tr("Open Link in New Tab"), this, [this]() {
+                triggerPageAction(QWebPage::WebAction::OpenLinkInNewWindow);
             });
+        }
+
+        if (scheme != QLatin1String("qrc")) {
+            if (scheme != QLatin1String("javascript")) {
+                m_contextMenu->addAction(tr("Open Link in Desktop Browser"), this, [linkUrl]() {
+                    QDesktopServices::openUrl(linkUrl);
+                });
+            }
 
             m_contextMenu->addAction(pageAction(QWebPage::CopyLinkToClipboard));
         }
@@ -147,6 +153,10 @@ void WebView::contextMenuEvent(QContextMenuEvent *event)
         if (!m_contextMenu->isEmpty()) {
             m_contextMenu->addSeparator();
         }
+
+        m_contextMenu->addAction(pageAction(QWebPage::Back));
+        m_contextMenu->addAction(pageAction(QWebPage::Forward));
+        m_contextMenu->addSeparator();
 
         m_contextMenu->addAction(tr("Open Page in Desktop Browser"), this, [this]() {
             QDesktopServices::openUrl(url());
@@ -177,7 +187,7 @@ void WebView::mousePressEvent(QMouseEvent *event)
     case Qt::LeftButton:
     case Qt::MiddleButton:
         m_clickedLink = hitTestContent(event->pos()).linkUrl();
-        if (!m_clickedLink.isValid()) {
+        if (!m_clickedLink.isValid() || m_clickedLink.scheme() == QLatin1String("javascript")) {
             break;
         }
 
@@ -198,7 +208,8 @@ void WebView::mouseReleaseEvent(QMouseEvent *event)
     }
 
     const QUrl clickedLink = hitTestContent(event->pos()).linkUrl();
-    if (!clickedLink.isValid() || clickedLink != m_clickedLink) {
+    if (!clickedLink.isValid() || clickedLink != m_clickedLink
+            || clickedLink.scheme() == QLatin1String("javascript")) {
         QWebView::mouseReleaseEvent(event);
         return;
     }
@@ -299,6 +310,11 @@ QWebHitTestResult WebView::hitTestContent(const QPoint &pos) const
 
 bool WebView::isUrlExternal(const QUrl &url)
 {
+    static const QStringList localSchemes = {
+        QStringLiteral("file"),
+        QStringLiteral("qrc"),
+    };
+
     const QString scheme = url.scheme();
-    return !scheme.isEmpty() && scheme != QLatin1String("file") && scheme != QLatin1String("qrc");
+    return !scheme.isEmpty() && !localSchemes.contains(scheme);
 }

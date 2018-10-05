@@ -143,12 +143,21 @@ void SettingsDialog::chooseCustomCssFile()
 
 void SettingsDialog::chooseDocsetStoragePath()
 {
-    const QString dir = QFileDialog::getExistingDirectory(this, tr("Open Directory"),
-                                                          ui->docsetStorageEdit->text());
-    if (dir.isEmpty())
+    QString path = QFileDialog::getExistingDirectory(this, tr("Open Directory"),
+                                                     ui->docsetStorageEdit->text());
+    if (path.isEmpty()) {
         return;
+    }
 
-    ui->docsetStorageEdit->setText(QDir::toNativeSeparators(dir));
+#ifdef PORTABLE_BUILD
+    // Use relative path if selected directory is under the application binary path.
+    if (path.startsWith(QCoreApplication::applicationDirPath() + QLatin1String("/"))) {
+        const QDir appDirPath(QCoreApplication::applicationDirPath());
+        path = appDirPath.relativeFilePath(path);
+    }
+#endif
+
+    ui->docsetStorageEdit->setText(QDir::toNativeSeparators(path));
 }
 
 void SettingsDialog::loadSettings()
@@ -256,7 +265,7 @@ void SettingsDialog::saveSettings()
     settings->fixedFontFamily = ui->fixedFontComboBox->currentText();
 
     settings->defaultFontSize = ui->fontSizeComboBox->currentData().toInt();
-    settings->defaultFixedFontSize = ui->fixedFontComboBox->currentData().toInt();
+    settings->defaultFixedFontSize = ui->fixedFontSizeComboBox->currentData().toInt();
     settings->minimumFontSize = ui->minFontSizeComboBox->currentData().toInt();
 
     settings->darkModeEnabled = ui->darkModeCheckBox->isChecked();
